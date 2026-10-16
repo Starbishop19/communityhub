@@ -56,7 +56,7 @@ if 'user_type' not in st.session_state:
 # ---------------- LOGIN AND REGISTER PAGE ----------------
 def setup_tables():
     conn = get_db()
-    
+
     # create all tables
     conn.execute('''CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,6 +97,79 @@ def setup_tables():
         type TEXT, reading REAL, date TEXT
     )''')
     conn.commit()
+
+    # add demo accounts AND sample data if missing
+    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if count == 0:
+        import random
+
+        # 1. Demo users
+        demos = [
+            ("resident@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Resident"),
+            ("provider@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Provider"),
+            ("business@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Business")
+        ]
+        conn.executemany("INSERT INTO users (email, password, user_type) VALUES (?, ?, ?)", demos)
+
+        # 2. Demo alerts
+        alerts_data = [
+            ("Water Outage in Block 7", "No water supply in Section B. Please store water.", "Block 7, Section B", "High", "Water Outage"),
+            ("Road Closure at Taxi Rank", "Road blocked due to flooding. Use side road via Block 3.", "Taxi Rank, Section A", "High", "Road Closure"),
+            ("Security Alert", "Increased burglary reports in Block 12. Be vigilant.", "Block 12, Section C", "Medium", "Security"),
+            ("Eskom Load Shedding", "Transformers overloaded in Main Road area.", "Main Road, Section A", "Medium", "Power Outage"),
+            ("Community Clean-Up", "Join us this Saturday near the clinic. Brooms provided.", "Community Clinic", "Low", "Event")
+        ]
+        conn.executemany("INSERT INTO alerts (title, description, area, severity, alert_type) VALUES (?, ?, ?, ?, ?)", alerts_data)
+
+        # 3. Demo reports
+        reports_data = [
+            ("Water Leak near Clinic", "Large leak wasting water.", "Community Clinic", "Water Leak", "Open"),
+            ("Broken Street Light", "Block 8 road is dark at night.", "Block 8, Section B", "Street Light", "Open"),
+            ("Pothole on Main Road", "Damaging cars near taxi rank.", "Taxi Rank, Section A", "Pothole", "Open"),
+            ("Trash Pileup", "Trash near spaza shop needs collection.", "Main Road, Section A", "Trash", "Open"),
+            ("Broken Bus Stop", "Shelter broken in Block 5.", "Block 5, Section A", "Bus Stop", "Open"),
+            ("Power Cut in Block 3", "Power out for 3 days.", "Block 3, Section A", "Power Cut", "Open")
+        ]
+        conn.executemany("INSERT INTO reports (title, description, area, category, status) VALUES (?, ?, ?, ?, ?)", reports_data)
+
+        # 4. Demo resources
+        resources_data = [
+            ("Offering: 20L Water Containers", "Available at Block 7 gate.", "Offering", "Water", "5 containers", "072-123-4567"),
+            ("Requesting: Power Bank", "Need for job interview tomorrow.", "Requesting", "Power", "1", "073-456-7890"),
+            ("Offering: Spare Bricks", "Free for anyone building.", "Offering", "Tools", "200 bricks", "071-234-5678"),
+            ("Requesting: Lift to Sandton", "Job interview tomorrow morning. Can share costs.", "Requesting", "Transport", "1 person", "074-567-8901")
+        ]
+        conn.executemany("INSERT INTO resources (title, description, type, category, quantity, contact) VALUES (?, ?, ?, ?, ?, ?)", resources_data)
+
+        # 5. Demo food points
+        food_data = [
+            ("Diepsloot Food Bank", "123 Main Road, Section A", "Food Bank", "Mon-Fri: 9am-3pm", "011-123-4567", "ID required. 1 bag per household."),
+            ("Grace Community Church", "Block 2, Section B", "Church", "Sun: 12pm-2pm", "011-765-4321", "Free Sunday lunch for families."),
+            ("Hope Community Fridge", "Block 9, Section B", "Community Fridge", "Open 24 hours", "076-111-2222", "Take what you need, leave what you can.")
+        ]
+        conn.executemany("INSERT INTO food_points (name, address, type, hours, contact, notes) VALUES (?, ?, ?, ?, ?, ?)", food_data)
+
+        # 6. Demo businesses
+        business_data = [
+            ("Thabo's Repairs", "Thabo Mokoena", "Block 4, Section A", "Phone, TV, Microwave repairs", "Repair", "072-987-6543", "Fair prices. Walk-ins welcome."),
+            ("Lerato Solar Solutions", "Lerato Nkosi", "Main Road, Section A", "Solar panels, Battery backup", "Solar", "073-876-5432", "Free consultation."),
+            ("Mpho's Grocery & Reuse", "Mpho Dlamini", "Block 6, Section B", "Groceries, Second-hand clothes", "Reuse", "074-765-4321", "Low prices. Trading accepted.")
+        ]
+        conn.executemany("INSERT INTO businesses (name, owner, address, services, category, contact, notes) VALUES (?, ?, ?, ?, ?, ?, ?)", business_data)
+
+        # 7. Demo meter readings (6 months)
+        base_water = 5000
+        base_electric = 15000
+        for i in range(6):
+            month = 10 - i
+            water_reading = base_water + random.randint(150, 200)
+            elec_reading = base_electric + random.randint(300, 500)
+            conn.execute("INSERT INTO meter_readings (type, reading, date) VALUES (?, ?, ?)", ('Water', water_reading, f"2024-{month:02d}-01"))
+            conn.execute("INSERT INTO meter_readings (type, reading, date) VALUES (?, ?, ?)", ('Electricity', elec_reading, f"2024-{month:02d}-01"))
+
+        conn.commit()
+
+    conn.close()
 
     # add demo accounts if missing
     count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
