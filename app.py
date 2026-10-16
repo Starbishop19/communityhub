@@ -2,6 +2,7 @@ import streamlit as st
 import sqlite3
 import hashlib
 import pandas as pd
+import os
 
 # page settings
 st.set_page_config(page_title="CommunityHub | Diepsloot West", page_icon="🏘️", layout="wide")
@@ -35,8 +36,12 @@ st.markdown("""
 
 
 # this function gives me a connection to the database whenever i need it
+
+TEMP_DIR = os.environ.get('TEMP', '/tmp')
+DB_PATH = os.path.join(TEMP_DIR, "communityhub.db")
+
 def get_db():
-    conn = sqlite3.connect('communityhub.db')
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -48,6 +53,62 @@ if 'user_type' not in st.session_state:
 
 
 # ---------------- LOGIN AND REGISTER PAGE ----------------
+def setup_tables():
+    conn = get_db()
+    
+    # create all tables
+    conn.execute('''CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        user_type TEXT NOT NULL
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL, description TEXT, area TEXT,
+        severity TEXT, alert_type TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL, description TEXT, area TEXT,
+        category TEXT, status TEXT DEFAULT 'Open',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS resources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL, description TEXT, type TEXT,
+        category TEXT, quantity TEXT, contact TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS food_points (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL, address TEXT, type TEXT,
+        hours TEXT, contact TEXT, notes TEXT
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS businesses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL, owner TEXT, address TEXT,
+        services TEXT, category TEXT, contact TEXT, notes TEXT
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS meter_readings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT, reading REAL, date TEXT
+    )''')
+    conn.commit()
+
+    # add demo accounts if missing
+    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if count == 0:
+        demos = [
+            ("resident@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Resident"),
+            ("provider@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Provider"),
+            ("business@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Business")
+        ]
+        conn.executemany("INSERT INTO users (email, password, user_type) VALUES (?, ?, ?)", demos)
+        conn.commit()
+    conn.close()
+
 def show_login():
     st.markdown("<h1 style='text-align: center; color: #2e7d32;'>🏘️ CommunityHub</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: gray;'>Diepsloot West — Preparing together</p>", unsafe_allow_html=True)
@@ -342,6 +403,9 @@ def show_savings():
 
 
 # ---------------- MAIN APP LOGIC ----------------
+# ensure all tables and demo data exist
+setup_tables()
+
 if not st.session_state.logged_in:
     show_login()
 else:

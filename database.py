@@ -1,10 +1,16 @@
 import sqlite3
 import hashlib
 import random
+import os 
 
-# connecting to the database file
-conn = sqlite3.connect("communityhub.db")
+
+# use the system temp folder — always writable
+TEMP_DIR = os.environ.get('TEMP', '/tmp')
+DB_PATH = os.path.join(TEMP_DIR, "communityhub.db")
+
+conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
+
 
 print("Setting up the database for Diepsloot West...")
 
