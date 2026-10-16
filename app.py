@@ -3,9 +3,11 @@ import sqlite3
 import hashlib
 import pandas as pd
 import os
+import random
 
 # page settings
 st.set_page_config(page_title="CommunityHub | Diepsloot West", page_icon="🏘️", layout="wide")
+
 # fix colors for both light and dark mode
 st.markdown("""
 <style>
@@ -34,9 +36,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-
 # this function gives me a connection to the database whenever i need it
-
+# using the same folder as the app so it works when deployed too
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(SCRIPT_DIR, "communityhub.db")
 
@@ -98,9 +99,19 @@ def setup_tables():
     )''')
     conn.commit()
 
-    
+    # if there are no users yet then we add the demo stuff
+    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if count == 0:
 
-        # 2. Demo alerts
+        # demo accounts so the judges can log in
+        demos = [
+            ("resident@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Resident"),
+            ("provider@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Provider"),
+            ("business@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Business")
+        ]
+        conn.executemany("INSERT INTO users (email, password, user_type) VALUES (?, ?, ?)", demos)
+
+        # sample alerts so the page is not empty
         alerts_data = [
             ("Water Outage in Block 7", "No water supply in Section B. Please store water.", "Block 7, Section B", "High", "Water Outage"),
             ("Road Closure at Taxi Rank", "Road blocked due to flooding. Use side road via Block 3.", "Taxi Rank, Section A", "High", "Road Closure"),
@@ -110,7 +121,7 @@ def setup_tables():
         ]
         conn.executemany("INSERT INTO alerts (title, description, area, severity, alert_type) VALUES (?, ?, ?, ?, ?)", alerts_data)
 
-        # 3. Demo reports
+        # sample reports
         reports_data = [
             ("Water Leak near Clinic", "Large leak wasting water.", "Community Clinic", "Water Leak", "Open"),
             ("Broken Street Light", "Block 8 road is dark at night.", "Block 8, Section B", "Street Light", "Open"),
@@ -121,7 +132,7 @@ def setup_tables():
         ]
         conn.executemany("INSERT INTO reports (title, description, area, category, status) VALUES (?, ?, ?, ?, ?)", reports_data)
 
-        # 4. Demo resources
+        # sample sharing posts
         resources_data = [
             ("Offering: 20L Water Containers", "Available at Block 7 gate.", "Offering", "Water", "5 containers", "072-123-4567"),
             ("Requesting: Power Bank", "Need for job interview tomorrow.", "Requesting", "Power", "1", "073-456-7890"),
@@ -130,7 +141,7 @@ def setup_tables():
         ]
         conn.executemany("INSERT INTO resources (title, description, type, category, quantity, contact) VALUES (?, ?, ?, ?, ?, ?)", resources_data)
 
-        # 5. Demo food points
+        # sample food points
         food_data = [
             ("Diepsloot Food Bank", "123 Main Road, Section A", "Food Bank", "Mon-Fri: 9am-3pm", "011-123-4567", "ID required. 1 bag per household."),
             ("Grace Community Church", "Block 2, Section B", "Church", "Sun: 12pm-2pm", "011-765-4321", "Free Sunday lunch for families."),
@@ -138,7 +149,7 @@ def setup_tables():
         ]
         conn.executemany("INSERT INTO food_points (name, address, type, hours, contact, notes) VALUES (?, ?, ?, ?, ?, ?)", food_data)
 
-        # 6. Demo businesses
+        # sample local businesses
         business_data = [
             ("Thabo's Repairs", "Thabo Mokoena", "Block 4, Section A", "Phone, TV, Microwave repairs", "Repair", "072-987-6543", "Fair prices. Walk-ins welcome."),
             ("Lerato Solar Solutions", "Lerato Nkosi", "Main Road, Section A", "Solar panels, Battery backup", "Solar", "073-876-5432", "Free consultation."),
@@ -146,31 +157,21 @@ def setup_tables():
         ]
         conn.executemany("INSERT INTO businesses (name, owner, address, services, category, contact, notes) VALUES (?, ?, ?, ?, ?, ?, ?)", business_data)
 
-        # 7. Demo meter readings (6 months)
+        # fake meter readings for the last 6 months so the chart has something to show
         base_water = 5000
         base_electric = 15000
         for i in range(6):
             month = 10 - i
-            water_reading = base_water + random.randint(150, 200)
-            elec_reading = base_electric + random.randint(300, 500)
-            conn.execute("INSERT INTO meter_readings (type, reading, date) VALUES (?, ?, ?)", ('Water', water_reading, f"2024-{month:02d}-01"))
-            conn.execute("INSERT INTO meter_readings (type, reading, date) VALUES (?, ?, ?)", ('Electricity', elec_reading, f"2024-{month:02d}-01"))
+            base_water += random.randint(150, 200)
+            base_electric += random.randint(300, 500)
+            conn.execute("INSERT INTO meter_readings (type, reading, date) VALUES (?, ?, ?)", ('Water', base_water, f"2024-{month:02d}-01"))
+            conn.execute("INSERT INTO meter_readings (type, reading, date) VALUES (?, ?, ?)", ('Electricity', base_electric, f"2024-{month:02d}-01"))
 
         conn.commit()
 
+    # only close once at the very end
     conn.close()
 
-    # add demo accounts if missing
-    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    if count == 0:
-        demos = [
-            ("resident@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Resident"),
-            ("provider@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Provider"),
-            ("business@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Business")
-        ]
-        conn.executemany("INSERT INTO users (email, password, user_type) VALUES (?, ?, ?)", demos)
-        conn.commit()
-    conn.close()
 
 def show_login():
     st.markdown("<h1 style='text-align: center; color: #2e7d32;'>🏘️ CommunityHub</h1>", unsafe_allow_html=True)
@@ -182,7 +183,7 @@ def show_login():
         st.subheader("Login")
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
-        
+
         if st.button("Login", type="primary"):
             if email == "" or password == "":
                 st.warning("Please fill in both fields")
@@ -199,8 +200,6 @@ def show_login():
                     st.rerun()
                 else:
                     st.error("Wrong email or password")
-        
-        
 
         st.info("""
         **Demo Accounts for Judges:**
@@ -281,6 +280,51 @@ def show_alerts():
 
 
 # ---------------- REPORTS PAGE ----------------
+def show_reports():
+    st.header("📋 Service Reports")
+
+    if st.session_state.user_type == "Resident":
+        with st.expander("+ Report a problem"):
+            title = st.text_input("Title")
+            desc = st.text_area("Description")
+            area = st.text_input("Area")
+            cat = st.selectbox("Category", ["Water Leak", "Power Cut", "Pothole", "Trash", "Street Light", "Bus Stop", "Other"])
+
+            if st.button("Submit Report"):
+                if title != "" and desc != "":
+                    conn = get_db()
+                    conn.execute("INSERT INTO reports (title, description, area, category) VALUES (?, ?, ?, ?)",
+                                 (title, desc, area, cat))
+                    conn.commit()
+                    conn.close()
+                    st.success("Report submitted!")
+                    st.rerun()
+                else:
+                    st.warning("Fill in the title and description")
+
+    conn = get_db()
+    reports = conn.execute("SELECT * FROM reports ORDER BY created_at DESC").fetchall()
+
+    for report in reports:
+        st.markdown(f"""
+        <div style="background-color: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <strong>{report['title']}</strong>
+            <p style="margin: 5px 0;">{report['description']}</p>
+            <small>📍 {report['area']} | Category: {report['category']} | Status: {report['status']}</small>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # providers can change the status
+        if st.session_state.user_type == "Provider":
+            choice = st.selectbox("Change status", ["Open", "In Progress", "Resolved"], key=f"st_{report['id']}")
+            if st.button("Update", key=f"btn_{report['id']}"):
+                conn.execute("UPDATE reports SET status = ? WHERE id = ?", (choice, report['id']))
+                conn.commit()
+                st.success("Status updated!")
+                st.rerun()
+
+    conn.close()
+        # ---------------- REPORTS PAGE ----------------
 def show_reports():
     st.header("📋 Service Reports")
 
@@ -466,7 +510,7 @@ def show_savings():
 
 
 # ---------------- MAIN APP LOGIC ----------------
-# ensure all tables and demo data exist
+# make sure tables and demo data exist before anything else runs
 setup_tables()
 
 if not st.session_state.logged_in:
