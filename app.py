@@ -98,18 +98,7 @@ def setup_tables():
     )''')
     conn.commit()
 
-    # add demo accounts AND sample data if missing
-    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    if count == 0:
-        import random
-
-        # 1. Demo users
-        demos = [
-            ("resident@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Resident"),
-            ("provider@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Provider"),
-            ("business@diepsloot.demo", hashlib.sha256("demo123".encode()).hexdigest(), "Business")
-        ]
-        conn.executemany("INSERT INTO users (email, password, user_type) VALUES (?, ?, ?)", demos)
+    
 
         # 2. Demo alerts
         alerts_data = [
